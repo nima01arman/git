@@ -1,0 +1,86 @@
+//new
+package com.abdulrauf.myapplication.ui.login;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.RadioGroup;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.abdulrauf.myapplication.MainActivity;
+import com.abdulrauf.myapplication.MainActivity2;
+import com.abdulrauf.myapplication.R;
+import com.abdulrauf.myapplication.ui.Register.RegisterActivity;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
+public class LoginActivity extends AppCompatActivity {
+
+    private FirebaseAuth mAuth;
+    private EditText emailEditText, passwordEditText;
+    private Button loginButton;
+    private TextView registerLink;
+    private RadioGroup roleRadioGroup;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+
+        mAuth = FirebaseAuth.getInstance();
+
+        emailEditText = findViewById(R.id.emailEditText);
+        passwordEditText = findViewById(R.id.passwordEditText);
+        loginButton = findViewById(R.id.loginButton);
+        registerLink = findViewById(R.id.registerLink);
+        roleRadioGroup = findViewById(R.id.roleRadioGroup); // مقداردهی RadioGroup
+
+        loginButton.setOnClickListener(v -> login());
+
+        registerLink.setOnClickListener(v -> {
+            Intent intent = new Intent(LoginActivity.this, RegisterActivity.class);
+            startActivity(intent);
+        });
+    }
+
+    private void login() {
+        String email = emailEditText.getText().toString();
+        String password = passwordEditText.getText().toString();
+
+        if (TextUtils.isEmpty(email) || TextUtils.isEmpty(password)) {
+            Toast.makeText(this, "لطفاً فیلدها را پر کنید", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int selectedRoleId = roleRadioGroup.getCheckedRadioButtonId();
+
+        if (selectedRoleId == -1) {
+            Toast.makeText(this, "لطفاً نقش خود را انتخاب کنید", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        mAuth.signInWithEmailAndPassword(email, password)
+                .addOnSuccessListener(authResult -> {
+                    // نقش انتخاب‌شده تعیین‌کننده‌ی مقصد است
+                    if (selectedRoleId == R.id.radioCustomer) {
+                        goToMain(MainActivity.class);
+                    } else if (selectedRoleId == R.id.radioBarber) {
+                        goToMain(MainActivity2.class);
+                    }
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "ورود ناموفق: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+    }
+
+    private void goToMain(Class<?> destinationActivity) {
+        Intent intent = new Intent(LoginActivity.this, destinationActivity);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        finish();
+    }
+}

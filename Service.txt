@@ -1,0 +1,185 @@
+package com.abdulrauf.myapplication;
+import static java.security.AccessController.getContext;
+
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.abdulrauf.myapplication.R;
+import com.abdulrauf.myapplication.ServiceAdapter;
+import com.abdulrauf.myapplication.ServiceModel;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+public class serviceFragment extends Fragment {
+
+    private EditText etName, etPrice;
+    private Button btnAdd;
+    private RecyclerView recyclerView;
+    private ArrayList<ServiceModel> serviceList;
+    private ServiceAdapter adapter;
+
+    private FirebaseFirestore db;
+    private String editingId = null;
+
+    public serviceFragment() {}
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.fragment_service, container, false);
+
+        etName = view.findViewById(R.id.etServiceName);
+        etPrice = view.findViewById(R.id.etServicePrice);
+        btnAdd = view.findViewById(R.id.btnAddService);
+        recyclerView = view.findViewById(R.id.recyclerViewServices);
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        serviceList = new ArrayList<>();
+
+        db = FirebaseFirestore.getInstance();
+
+        adapter = new ServiceAdapter(serviceList, new ServiceAdapter.OnServiceActionListener() {
+            @Override
+            public void onEdit(ServiceModel service) {
+                etName.setText(service.getServiceName());
+                etPrice.setText(String.valueOf(service.getServicePrice()));
+                editingId = service.getId();
+                btnAdd.setText("ویرایش سرویس");
+            }
+
+            @Override
+            public void onDelete(ServiceModel service) {
+                db.collection("services").document(service.getId())
+                        .delete()
+                        .addOnSuccessListener(aVoid -> {
+                            Toast.makeText(getContext(), "سرویس حذف شد", Toast.LENGTH_SHORT).show();
+                            fetchServices();
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(getContext(), "خطا در حذف", Toast.LENGTH_SHORT).show();
+                        });
+            }
+        });
+
+        recyclerView.setAdapter(adapter);
+        fetchServices();
+
+        btnAdd.setOnClickListener(v -> {
+            String name = etName.getText().toString().trim();
+            String priceStr = etPrice.getText().toString().trim();
+
+            if (TextUtils.isEmpty(name) || TextUtils.isEmpty(priceStr)) {
+                Toast.makeText(getContext(), "نام و قیمت الزامی است", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            int price = Integer.parseInt(priceStr);
+            Map<String, Object> service = new HashMap<>();
+            service.put("serviceName", name);
+            service.put("servicePrice", price);
+
+            if (editingId != null) {
+                db.collection("services").document(editingId)
+                        .update(service)
+                        .addOnSuccessListener(aVoid -> {
+                            Toast.makeText(getContext(), "سرویس ویرایش شد", Toast.LENGTH_SHORT).show();
+                            resetForm();
+                            fetchServices();
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(getContext(), "خطا در ویرایش", Toast.LENGTH_SHORT).show();
+                        });
+            } else {
+                db.collection("services")
+                        .add(service)
+                        .addOnSuccessListener(documentReference -> {
+                            Toast.makeText(getContext(), "سرویس اضافه شد", Toast.LENGTH_SHORT).show();
+                            resetForm();
+                            fetchServices();
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(getContext(), "خطا در افزودن", Toast.LENGTH_SHORT).show();
+                        });
+            }
+        });
+
+        return view;
+    }
+
+    private void fetchServices() {
+        db.collection("services")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    serviceList.clear();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        ServiceModel service = document.toObject(ServiceModel.class);
+                        service.setId(document.getId());
+                        serviceList.add(service);
+                    }
+                    adapter.notifyDataSetChanged();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "خطا در دریافت خدمات", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void resetForm() {
+        etName.setText("");
+        etPrice.setText("");
+        editingId = null;
+        btnAdd.setText("افزودن سرویس");
+    }
+}
+
+
+
+XML-SOURCE:
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- فیلد وارد کردن نام سرویس -->
+    <EditText
+        android:id="@+id/etServiceName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="نام سرویس"
+        android:inputType="text" />
+
+    <!-- فیلد وارد کردن قیمت سرویس -->
+    <EditText
+        android:id="@+id/etServicePrice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="قیمت سرویس"
+        android:inputType="number" />
+
+    <!-- دکمه افزودن سرویس -->
+    <Button
+        android:id="@+id/btnAddService"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="افزودن سرویس" />
+
+    <!-- RecyclerView برای نمایش خدمات -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewServices"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+</LinearLayout>

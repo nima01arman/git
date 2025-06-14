@@ -1,0 +1,102 @@
+package com.abdulrauf.myapplication.ui.home;
+
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.fragment.app.Fragment;
+
+import com.abdulrauf.myapplication.R;
+import com.abdulrauf.myapplication.databinding.FragmentHomeBinding;
+import com.abdulrauf.myapplication.ui.login.LoginActivity;
+import com.bumptech.glide.Glide;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
+public class HomeFragment extends Fragment {
+
+    private FragmentHomeBinding binding;
+    private FirebaseAuth mAuth;
+    private TextView userEmailTextView;
+    private ImageView userProfileImageView;
+
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             ViewGroup container, Bundle savedInstanceState) {
+
+        binding = FragmentHomeBinding.inflate(inflater, container, false);
+        View root = binding.getRoot();
+
+        // Firebase Auth
+        mAuth = FirebaseAuth.getInstance();
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+
+        // ارجاع به ویوها
+        userEmailTextView = binding.textUserEmail;
+        userProfileImageView = binding.imageUserProfile;
+
+        // SharedPreferences برای ذخیره حالت شب
+        SharedPreferences preferences = requireContext().getSharedPreferences("settings", 0);
+        boolean isNightMode = preferences.getBoolean("dark_mode", false);
+        binding.switchMode.setChecked(isNightMode);
+        AppCompatDelegate.setDefaultNightMode(
+                isNightMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO
+        );
+
+        // سوییچ تغییر حالت دارک مود
+        binding.switchMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            AppCompatDelegate.setDefaultNightMode(
+                    isChecked ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO
+            );
+            preferences.edit().putBoolean("dark_mode", isChecked).apply();
+        });
+
+        if (currentUser == null) {
+            Toast.makeText(getContext(), "لطفاً ابتدا وارد شوید", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(getActivity(), LoginActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            requireActivity().finish();
+        } else {
+            String userEmail = currentUser.getEmail();
+            String userProfileImageUrl = currentUser.getPhotoUrl() != null ? currentUser.getPhotoUrl().toString() : "";
+
+            userEmailTextView.setText(userEmail);
+
+            if (!userProfileImageUrl.isEmpty()) {
+                Glide.with(getContext())
+                        .load(userProfileImageUrl)
+                        .into(userProfileImageView);
+            } else {
+                userProfileImageView.setImageResource(R.drawable.avatar_svgrepo_com);
+            }
+
+            binding.buttonLogout.setOnClickListener(v -> logout());
+        }
+
+        return root;
+    }
+
+    private void logout() {
+        FirebaseAuth.getInstance().signOut();
+        Toast.makeText(getContext(), "خروج موفقیت‌آمیز", Toast.LENGTH_SHORT).show();
+        Intent intent = new Intent(getActivity(), LoginActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
+        requireActivity().finish();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null;
+    }
+}

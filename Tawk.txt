@@ -1,0 +1,100 @@
+package com.abdulrauf.myapplication;
+
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.view.View;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.ProgressBar;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class TawkActivity extends AppCompatActivity {
+
+    private WebView webView;
+    private ProgressBar progressBar;
+    private ValueCallback<Uri[]> filePathCallback; // تغییر نوع به Uri[]
+    private static final int FILECHOOSER_RESULTCODE = 1;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_tawk);
+
+        // مقداردهی به WebView و ProgressBar
+        webView = findViewById(R.id.webView);
+        progressBar = findViewById(R.id.progressBar3);
+
+        // اطمینان از فعال بودن JavaScript
+        webView.getSettings().setJavaScriptEnabled(true);
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                // نمایش ProgressBar هنگام بارگذاری
+                progressBar.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                // مخفی کردن ProgressBar پس از بارگذاری
+                progressBar.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                // مدیریت خطاهای بارگذاری
+                progressBar.setVisibility(View.GONE);
+                // می‌توانید یک Toast یا Snackbar برای نمایش خطا اضافه کنید
+            }
+        });
+
+        // اضافه کردن WebChromeClient برای مدیریت آپلود فایل
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                TawkActivity.this.filePathCallback = filePathCallback;
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                startActivityForResult(Intent.createChooser(intent, "انتخاب فایل"), FILECHOOSER_RESULTCODE);
+                return true;
+            }
+        });
+
+        // بارگذاری URL Tawk.to
+        String url = "https://tawk.to/chat/669e9521becc2fed69290587/1i3dnd2ul";
+        webView.loadUrl(url);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILECHOOSER_RESULTCODE) {
+            if (filePathCallback != null) {
+                Uri result = (data == null || resultCode != RESULT_OK) ? null : data.getData();
+                filePathCallback.onReceiveValue(result != null ? new Uri[]{result} : null);
+                filePathCallback = null;
+            }
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // پاکسازی منابع WebView
+        if (webView != null) {
+            webView.loadUrl("about:blank"); // جلوگیری از بارگذاری مجدد
+            webView.clearHistory();
+            webView.destroy();
+        }
+    }
+}
